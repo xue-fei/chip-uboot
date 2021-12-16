@@ -22,8 +22,8 @@
 #define W1_TIMING_E	9
 #define W1_TIMING_F	55
 #define W1_TIMING_G	0
-#define W1_TIMING_H	480
-#define W1_TIMING_I	70
+#define W1_TIMING_H	600
+#define W1_TIMING_I	100
 #define W1_TIMING_J	410
 
 struct w1_gpio_pdata {
