@@ -105,6 +105,56 @@ static int nand_do_write_oob(struct mtd_info *mtd, loff_t to,
  */
 DEFINE_LED_TRIGGER(nand_led_trigger);
 
+static int nand_pairing_dist3_get_info(struct mtd_info *mtd, int page,
+				       struct mtd_pairing_info *info)
+{
+	int lastpage = (mtd->erasesize / mtd->writesize) - 1;
+	int dist = 3;
+
+	if (page == lastpage)
+		dist = 2;
+
+	if (!page || (page & 1)) {
+		info->group = 0;
+		info->pair = (page + 1) / 2;
+	} else {
+		info->group = 1;
+		info->pair = (page + 1 - dist) / 2;
+	}
+
+	return 0;
+}
+
+static int nand_pairing_dist3_get_wunit(struct mtd_info *mtd,
+					const struct mtd_pairing_info *info)
+{
+	int lastpair = ((mtd->erasesize / mtd->writesize) - 1) / 2;
+	int page = info->pair * 2;
+	int dist = 3;
+
+	if (!info->group && !info->pair)
+		return 0;
+
+	if (info->pair == lastpair && info->group)
+		dist = 2;
+
+	if (!info->group)
+		page--;
+	else if (info->pair)
+		page += dist - 1;
+
+	if (page >= mtd->erasesize / mtd->writesize)
+		return -EINVAL;
+
+	return page;
+}
+
+const struct mtd_pairing_scheme dist3_pairing_scheme = {
+	.ngroups = 2,
+	.get_info = nand_pairing_dist3_get_info,
+	.get_wunit = nand_pairing_dist3_get_wunit,
+};
+
 static int check_offs_len(struct mtd_info *mtd,
 					loff_t ofs, uint64_t len)
 {
@@ -4490,6 +4540,23 @@ ident_done:
 	for (maf_idx = 0; nand_manuf_ids[maf_idx].id != 0x0; maf_idx++) {
 		if (nand_manuf_ids[maf_idx].id == *maf_id)
 			break;
+	}
+
+	/* Enable slc-mode on TC58TEG5DCLTA00 to match upstream Linux */
+	if (id_data[0] == NAND_MFR_TOSHIBA && id_data[1] == 0xd7
+	    && id_data[2] == 0x84 && id_data[3] == 0x93
+	    && id_data[4] == 0x72 && id_data[5] == 0x51
+	    && id_data[6] == 0x08 && id_data[7] == 0x04) {
+		chip->options |= NAND_NEED_SCRAMBLING;
+		mtd_set_pairing_scheme(mtd, &dist3_pairing_scheme);
+	}
+
+	/* Enable slc-mode on H27UCG8T2ETR to enable upstream Linux */
+	if (id_data[0] == NAND_MFR_HYNIX && id_data[1] == 0xde
+	    && id_data[2] == 0x14 && id_data[3] == 0xa7
+	    && id_data[4] == 0x42 && id_data[5] == 0x4a) {
+		chip->options |= NAND_NEED_SCRAMBLING;
+		mtd_set_pairing_scheme(mtd, &dist3_pairing_scheme);
 	}
 
 	if (chip->options & NAND_BUSWIDTH_AUTO) {

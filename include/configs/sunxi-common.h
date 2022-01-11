@@ -397,6 +397,8 @@
 	"uuid_gpt_system=" UUID_GPT_SYSTEM "\0" \
 	"partitions=" PARTS_DEFAULT "\0" \
 	BOOTCMD_SUNXI_COMPAT \
+	"bootubivol=rootfs\0" \
+	"bootubipart=rootfs\0" \
 	BOOTENV
 
 #else /* ifndef CONFIG_SPL_BUILD */
