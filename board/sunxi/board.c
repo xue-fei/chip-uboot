@@ -26,6 +26,7 @@
 #include <asm/arch/display.h>
 #include <asm/arch/dram.h>
 #include <asm/arch/mmc.h>
+#include <asm/arch/pmic_bus.h>
 #include <asm/arch/prcm.h>
 #include <asm/arch/spl.h>
 #include <asm/global_data.h>
@@ -586,6 +587,7 @@ static void sunxi_spl_store_dram_size(phys_addr_t dram_size)
 void sunxi_board_init(void)
 {
 	int power_failed = 0;
+	__maybe_unused u8 boot_reason;
 
 #ifdef CONFIG_LED_STATUS
 	if (IS_ENABLED(CONFIG_SPL_DRIVERS_MISC))
@@ -600,6 +602,22 @@ void sunxi_board_init(void)
 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP305_POWER || \
 	defined CONFIG_AXP809_POWER || defined CONFIG_AXP818_POWER
 	power_failed = axp_init();
+
+#if IS_ENABLED(CONFIG_AXP_DISABLE_POWERON_VIN)
+/* This behavior (bit(0) of register 0x00 and shutdown by setting bit(7) of
+ * register 0x32 appears to be common to many AXP chips, at least according to
+ * the datasheets of the AXP209, the AXP221, the AXP803, the AXP809, and the
+ * AXP818. Hardcoding certain registers to prevent pulling in unnecessary
+ * includes.
+ */
+	if (!power_failed) {
+		pmic_bus_read(AXP_POWER_STATUS, &boot_reason);
+		if (boot_reason & BIT(0)) {
+			printf("Power on by charger, shutting down.\n");
+			pmic_bus_write(0x32, BIT(7));
+		}
+	}
+#endif
 
 #if defined CONFIG_AXP221_POWER || defined CONFIG_AXP809_POWER || \
 	defined CONFIG_AXP818_POWER
